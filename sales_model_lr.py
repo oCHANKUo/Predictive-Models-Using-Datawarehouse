@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify
 import pyodbc
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 import pickle
 import os
 
 app = Flask(__name__)
-MODEL_FILE = "sales_model.pkl"
+MODEL_FILE = "sales_model_lr.pkl"  # changed file name to avoid overwriting RF model
 
 # Connect to SQL Server
 def get_connection():
@@ -30,7 +30,7 @@ def fetch_data():
     conn.close()
     return df
 
-# Train model
+# Train Linear Regression model
 @app.route('/train', methods=['POST', 'GET'])
 def train_model():
     df = fetch_data()
@@ -38,22 +38,19 @@ def train_model():
     df['Year'] = df['Year'].astype(int)
     df['Month'] = df['Month'].astype(int)
     df['TotalSales'] = df['TotalSales'].astype(float)
-    df['Quarter'] = ((df['Month'] - 1) // 3 + 1).astype(int)
-    df['IsHoliday'] = 0
 
     df['MonthIndex'] = (df['Year'] - df['Year'].min()) * 12 + df['Month']
 
-    # X = df[['MonthIndex']]
-    X = df[['MonthIndex', 'Month', 'Quarter', 'IsHoliday']]
+    X = df[['MonthIndex']]
     y = df['TotalSales']
 
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model = LinearRegression()
     model.fit(X, y)
 
     with open(MODEL_FILE, "wb") as f:
         pickle.dump(model, f)
 
-    return jsonify({"message": "Model trained successfully"})
+    return jsonify({"message": "Linear Regression model trained successfully"})
 
 # Predict future sales
 @app.route('/predict', methods=['GET'])
@@ -65,38 +62,27 @@ def predict_sales():
 
     df = fetch_data()
 
-    # Convert to numeric
     df['Year'] = df['Year'].astype(int)
     df['Month'] = df['Month'].astype(int)
 
-    # Calculate last_index
     last_index = ((df['Year'].max() - df['Year'].min()) * 12 + df['Month'].max())
+
+    future = pd.DataFrame({"MonthIndex": [last_index + i for i in range(1, months+1)]})
+    preds = model.predict(future)
+
+    # Map MonthIndex to actual Year and Month
     last_year = df['Year'].max()
     last_month = df['Month'].max()
-
-    # Create future dataframe with all required features
-    future = pd.DataFrame({"MonthIndex": [last_index + i for i in range(1, months+1)]})
-    future_year_month = []
+    future_dates = []
     for i in range(1, months + 1):
         month = last_month + i
         year = last_year + (month - 1) // 12
         month = ((month - 1) % 12) + 1
-        future_year_month.append((year, month))
+        future_dates.append((year, month))
 
-    future['Year'] = [y for (y, m) in future_year_month]
-    future['Month'] = [m for (y, m) in future_year_month]
-    future['Quarter'] = ((future['Month'] - 1) // 3 + 1)
-    future['IsHoliday'] = 0
-
-    # predict
-    preds = model.predict(future[['MonthIndex', 'Month', 'Quarter', 'IsHoliday']])
-
-    #results = [{"MonthIndex": int(future.iloc[i,0]), "PredictedSales": float(preds[i])} for i in range(months)]
     results = [
-        {"Year": int(future.iloc[i]['Year']),
-         "Month": int(future.iloc[i]['Month']),
-         "PredictedSales": round(float(preds[i]), 2)}
-        for i in range(months)
+        {"Year": int(y), "Month": int(m), "PredictedSales": round(float(preds[i]), 2)}
+        for i, (y, m) in enumerate(future_dates)
     ]
     return jsonify(results)
 
