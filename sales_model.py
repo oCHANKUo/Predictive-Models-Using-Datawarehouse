@@ -37,7 +37,8 @@ def train_model():
     
     df['Year'] = df['Year'].astype(int)
     df['Month'] = df['Month'].astype(int)
-    
+    df['TotalSales'] = df['TotalSales'].astype(float)
+
     df['MonthIndex'] = (df['Year'] - df['Year'].min()) * 12 + df['Month']
 
     X = df[['MonthIndex']]
@@ -49,7 +50,7 @@ def train_model():
     with open(MODEL_FILE, "wb") as f:
         pickle.dump(model, f)
 
-    return jsonify({"message": "Model trained successfully!"})
+    return jsonify({"message": "Model trained successfully"})
 
 # Predict future sales
 @app.route('/predict', methods=['GET'])
@@ -60,6 +61,12 @@ def predict_sales():
         model = pickle.load(f)
 
     df = fetch_data()
+
+    # Convert to numeric
+    df['Year'] = df['Year'].astype(int)
+    df['Month'] = df['Month'].astype(int)
+
+    # Calculate last_index
     last_index = ((df['Year'].max() - df['Year'].min()) * 12 + df['Month'].max())
 
     future = pd.DataFrame({"MonthIndex": [last_index + i for i in range(1, months+1)]})
