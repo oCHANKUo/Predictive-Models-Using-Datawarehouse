@@ -3,7 +3,6 @@ import pyodbc
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 import pickle
-import os
 
 app = Flask(__name__)
 MODEL_FILE = "sales_model.pkl"
@@ -12,17 +11,22 @@ MODEL_FILE = "sales_model.pkl"
 def get_connection():
     conn = pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=localhost\MSSQLSERVER03;DATABASE=DataWarehouseClassic;UID=admin;PWD=admin"
+        "SERVER=localhost\\MSSQLSERVER03;DATABASE=DataWarehouseClassic;UID=admin;PWD=admin"
     )
     return conn
 
-# Fetch sales data
+# Fetch sales data (with Quarter & Holiday info from DimDate)
 def fetch_data():
     query = """
-    SELECT d.Year, d.Month, SUM(f.TotalDue) AS TotalSales
+    SELECT 
+        d.Year,
+        d.Month,
+        ISNULL(d.Quarter, 0) AS Quarter,
+        ISNULL(d.IsHolidaySL, 0) AS IsHolidaySL,
+        SUM(f.TotalDue) AS TotalSales
     FROM FactSalesOrderDetail f
     JOIN DimDate d ON f.OrderDateKey = d.DateKey
-    GROUP BY d.Year, d.Month
+    GROUP BY d.Year, d.Month, d.Quarter, d.IsHolidaySL
     ORDER BY d.Year, d.Month;
     """
     conn = get_connection()
@@ -30,26 +34,31 @@ def fetch_data():
     conn.close()
     return df
 
+
 # Train model
 @app.route('/train', methods=['POST', 'GET'])
 def train_model():
     df = fetch_data()
-    
+
+    # Ensure correct datatypes
     df['Year'] = df['Year'].astype(int)
     df['Month'] = df['Month'].astype(int)
+    df['Quarter'] = df['Quarter'].astype(int)
+    df['IsHolidaySL'] = df['IsHolidaySL'].astype(int)
     df['TotalSales'] = df['TotalSales'].astype(float)
-    df['Quarter'] = ((df['Month'] - 1) // 3 + 1).astype(int)
-    df['IsHoliday'] = 0
 
+    # Create continuous MonthIndex
     df['MonthIndex'] = (df['Year'] - df['Year'].min()) * 12 + df['Month']
 
-    # X = df[['MonthIndex']]
-    X = df[['MonthIndex', 'Month', 'Quarter', 'IsHoliday']]
+    # Features (X) and target (y)
+    X = df[['MonthIndex', 'Month', 'Quarter', 'IsHolidaySL']]
     y = df['TotalSales']
 
+    # Train Random Forest model
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
 
+    # Save trained model
     with open(MODEL_FILE, "wb") as f:
         pickle.dump(model, f)
 
@@ -60,22 +69,24 @@ def train_model():
 def predict_sales():
     months = int(request.args.get("months", 6))
 
+    # Load trained model
     with open(MODEL_FILE, "rb") as f:
         model = pickle.load(f)
 
+    # Get historical data
     df = fetch_data()
-
-    # Convert to numeric
     df['Year'] = df['Year'].astype(int)
     df['Month'] = df['Month'].astype(int)
 
-    # Calculate last_index
+    # Find last point in data
     last_index = ((df['Year'].max() - df['Year'].min()) * 12 + df['Month'].max())
     last_year = df['Year'].max()
     last_month = df['Month'].max()
 
-    # Create future dataframe with all required features
+    # Build future dataframe
     future = pd.DataFrame({"MonthIndex": [last_index + i for i in range(1, months+1)]})
+
+    # Calculate future Year & Month
     future_year_month = []
     for i in range(1, months + 1):
         month = last_month + i
@@ -86,18 +97,20 @@ def predict_sales():
     future['Year'] = [y for (y, m) in future_year_month]
     future['Month'] = [m for (y, m) in future_year_month]
     future['Quarter'] = ((future['Month'] - 1) // 3 + 1)
-    future['IsHoliday'] = 0
+    future['IsHolidaySL'] = 0  # Future holiday info not predictable (kept as 0)
 
-    # predict
-    preds = model.predict(future[['MonthIndex', 'Month', 'Quarter', 'IsHoliday']])
+    # Predict sales
+    preds = model.predict(future[['MonthIndex', 'Month', 'Quarter', 'IsHolidaySL']])
 
-    #results = [{"MonthIndex": int(future.iloc[i,0]), "PredictedSales": float(preds[i])} for i in range(months)]
+    # Format results to a user friendly format
     results = [
         {"Year": int(future.iloc[i]['Year']),
          "Month": int(future.iloc[i]['Month']),
+         "Quarter": int(future.iloc[i]['Quarter']),
          "PredictedSales": round(float(preds[i]), 2)}
         for i in range(months)
     ]
+
     return jsonify(results)
 
 if __name__ == '__main__':
