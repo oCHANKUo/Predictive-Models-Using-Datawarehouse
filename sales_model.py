@@ -15,7 +15,7 @@ def get_connection():
     )
     return conn
 
-# Fetch sales data (with Quarter & Holiday info from DimDate)
+# Fetch sales data (with Quarter Holiday info from DimDate)
 def fetch_data():
     query = """
     SELECT 
