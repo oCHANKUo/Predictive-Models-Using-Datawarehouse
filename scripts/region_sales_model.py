@@ -2,13 +2,14 @@ from flask import Flask, request, jsonify
 import pyodbc
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import classification_report
 import pickle
 import os
 
 app = Flask(__name__)
-MODEL_FILE = "region_sales_model.pkl"
+CLASSIFIER_FILE = "region_sales_model.pkl"
+SALES_MODEL_FILE = "region_sales_sales_model.pkl"
 
 def get_connection():
     conn = pyodbc.connect(
@@ -21,12 +22,15 @@ def fetch_data():
     query = """
     SELECT 
         t.TerritoryName,
-        p.Categoryname,
+        p.CategoryName,
+        d.Year,
+        d.Month,
         SUM(f.OrderQty) AS TotalSales
     FROM FactSalesOrderDetail f
     JOIN DimProduct p ON f.ProductKey = p.ProductKey
     JOIN DimTerritory t ON f.TerritoryKey = t.TerritoryKey
-    GROUP BY t.TerritoryName, p.Categoryname
+    JOIN DimDate d ON f.OrderDateKey = d.DateKey
+    GROUP BY t.TerritoryName, p.CategoryName, d.Year, d.Month
     """
     conn = get_connection()
     df = pd.read_sql(query, conn)
@@ -34,72 +38,115 @@ def fetch_data():
     return df
 
 def preprocess(df):
-    # Features = Territory
-    # Target = CategoryName (best selling)
-    pivot = df.pivot_table(index = "TerritoryName",
-                           columns = "CategoryName",
-                           values = "TotalSales",
-                           aggfunc = "sum",
-                           fill_value = 0).reset_index()
-    
-    # Target = best-selling category per territory
-    pivot["TopCategory"] = pivot.drop(columns=["TerritoryName"]).idxmax(axis=1)
+    pivot = df.pivot_table(
+        index=['TerritoryName', 'Year', 'Month'],
+        columns='CategoryName',
+        values='TotalSales',
+        aggfunc='sum',
+        fill_value=0
+    ).reset_index()
 
-    x = pd.get_dummies(pivot["TerritorName"], drop_first=True)
-    y = pivot["TopCategory"]
+    pivot['TopCategory'] = pivot.drop(columns=['TerritoryName','Year','Month']).idxmax(axis=1)
 
-    return x, y, pivot
+    X_cls = pd.get_dummies(pivot['TerritoryName'], drop_first=True)
+    y_cls = pivot['TopCategory']
 
-@app.route("/train_regional_sales", methods = ['POST', 'GET'])
+    pivot['MonthIndex'] = (pivot['Year'].astype(int) - pivot['Year'].min())*12 + pivot['Month'].astype(int)
+    X_reg = X_cls.copy()
+    X_reg['MonthIndex'] = pivot['MonthIndex']
+    y_reg = pivot.drop(columns=['TerritoryName','Year','Month','TopCategory']).sum(axis=1)
+
+    pivot['Year'] = pivot['Year'].astype(int)
+    pivot['Month'] = pivot['Month'].astype(int)
+    pivot['MonthIndex'] = (pivot['Year'] - pivot['Year'].min())*12 + pivot['Month']
+
+
+    return X_cls, y_cls, X_reg, y_reg, pivot
+
+@app.route("/train_regional_sales", methods=['POST','GET'])
 def train_model():
     df = fetch_data()
-    x, y, pivot = preprocess(df)
 
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+    df['Year'] = df['Year'].astype(int)
+    df['Month'] = df['Month'].astype(int)
+    df['TotalSales'] = df['TotalSales'].astype(float)
 
-    model = RandomForestClassifier(random_state = 42)
-    model.fit(x_train, y_train)
+    X_cls, y_cls, X_reg, y_reg, pivot = preprocess(df)
 
-    y_pred = model.predict(x_test)
+    x_train, x_test, y_train, y_test = train_test_split(X_cls, y_cls, test_size=0.2, random_state=42)
+    clf = RandomForestClassifier(random_state=42)
+    clf.fit(x_train, y_train)
+
+    y_pred = clf.predict(x_test)
     report = classification_report(y_test, y_pred, output_dict=True)
 
-    with open(MODEL_FILE, "wb") as f:
-        pickle.dump(model, f)
+    with open(CLASSIFIER_FILE, "wb") as f:
+        pickle.dump(clf, f)
 
-    return jsonify({
-        "message": "Regional Sales Model Trained Successfully",
-        "classification_report": report
-    })
+    reg = RandomForestRegressor(n_estimators=100, random_state=42)
+    reg.fit(X_reg, y_reg)
 
-@app.route("/predict_regional_sales", methods = ['POST', 'GET'])
+    with open(SALES_MODEL_FILE, "wb") as f:
+        pickle.dump(reg, f)
+
+    return jsonify({"message":"Regional Sales Model Trained Successfully"})
+
+@app.route("/predict_regional_sales", methods=['GET','POST'])
 def predict():
-    data = request.get_json()
-    territory = data.get("TerritoryName")
+    months_to_predict = int(request.args.get("months", 6))  # default 6 months
 
-    if not os.path.exists(MODEL_FILE):
+    if not os.path.exists(CLASSIFIER_FILE) or not os.path.exists(SALES_MODEL_FILE):
         return jsonify({"error": "Model not trained yet"}), 400
-    
-    with open(MODEL_FILE, "rb") as f:
-        model = pickle.load(f)
 
-        df = fetch_data()
-        x, y, pivot = preprocess(df)
+    with open(CLASSIFIER_FILE, "rb") as f:
+        clf = pickle.load(f)
+    with open(SALES_MODEL_FILE, "rb") as f:
+        reg = pickle.load(f)
 
-        if territory not in pivot["TerritoryName"].values:
-            return jsonify({"error": "Territory not found"}), 400
-        
-        row = pd.DataFrame([territory], columns=["TerritoryName"])
-        row = pd.get_dummies(row, drop_first=True)
-        row = row.reindex(columns=x.columns, fill_value=0)
+    df = fetch_data()
+    df['Year'] = df['Year'].astype(int)
+    df['Month'] = df['Month'].astype(int)
+    df['TotalSales'] = df['TotalSales'].astype(float)
+
+    X_cls, y_cls, X_reg, y_reg, pivot = preprocess(df)
+
+    last_year = df['Year'].max()
+    last_month = df[df['Year']==last_year]['Month'].max()
+
+    territory_input = request.form.get("TerritoryName") or request.args.get("TerritoryName")
+    data = request.get_json(silent=True)
+    territory_input = territory_input or (data.get("TerritoryName") if data else None)
+
+    results = []
+    territories = [territory_input] if territory_input else pivot['TerritoryName'].unique()
+
+    for terr in territories:
+        for i in range(1, months_to_predict+1):
+            month = last_month + i
+            year = last_year + (month-1)//12
+            month = ((month-1)%12) + 1
+
+            row_cls = pd.DataFrame([terr], columns=['TerritoryName'])
+            row_cls = pd.get_dummies(row_cls, drop_first=True)
+            row_cls = row_cls.reindex(columns=X_cls.columns, fill_value=0)
+            top_category = clf.predict(row_cls)[0]
+
+            row_reg = row_cls.copy()
+            month_index = int((year - int(df['Year'].min()))*12 + month)
+            row_reg['MonthIndex'] = month_index
+            predicted_sales = reg.predict(row_reg)[0]
 
 
-        prediction = model.predict(row)
+            results.append({
+                "TerritoryName": str(terr),
+                "Year": int(year),
+                "Month": int(month),
+                "PredictedTopCategory": str(top_category),
+                "PredictedSales": float(predicted_sales)  # convert numpy float to native Python float
+            })
 
-        return jsonify({
-            "TerritoryName": territory,
-            "PredictedTopCategory": prediction[0]
-        })
-    
-    
+
+    return jsonify(results)
+
 if __name__ == "__main__":
     app.run(debug=True)
