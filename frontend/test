@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sales Prediction Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Sales Prediction Dashboard</h1>
+  
+  <!-- Prediction form -->
+  <div id="prediction-section">
+    <h2>Predict Sales</h2>
+    <input type="number" id="feature1" placeholder="Feature 1">
+    <input type="number" id="feature2" placeholder="Feature 2">
+    <button onclick="predictSales()">Predict</button>
+    <p id="result"></p>
+  </div>
+
+  <div id="salesperson-section">
+    <h2>Salesperson Performance</h2>
+    <button onclick="predictSalesperson()">Get Prediction</button>
+    <p id="salesperson-result"></p>
+  </div>
+
+  <div id="regional-section">
+    <h2>Regional Sales Trends</h2>
+    <button onclick="predictRegional()">Get Prediction</button>
+    <p id="regional-result"></p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
