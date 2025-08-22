@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pyodbc
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 import pickle
 
 app = Flask(__name__)
+CORS(app)
 MODEL_FILE = "sales_model.pkl"
 
 # Connect to SQL Server
