@@ -1,76 +1,103 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState } from "react";
 
 const SalesModel = () => {
-  const [trainMessage, setTrainMessage] = useState('');
-  const [predictions, setPredictions] = useState([]);
-  const [months, setMonths] = useState(6);
+  const [topN, setTopN] = useState(10);
+  const [customerKey, setCustomerKey] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleTrain = async () => {
+  const fetchPredictions = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/train_sales');
-      setTrainMessage(response.data.message);
+      let url = `http://127.0.0.1:5000/predict_sales?top_n=${topN}`;
+      if (customerKey) {
+        url += `&customerKey=${customerKey}`;
+      }
+
+      const response = await fetch(url);
+      const data = await response.json();
+      setResults(data);
     } catch (error) {
-      console.error(error);
-      setTrainMessage('Error when training model');
+      console.error("Error fetching predictions:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handlePredict = async () => {
+  const trainModel = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get(
-        `http://localhost:5000/predict_sales?months=${months}`
-      );
-      setPredictions(response.data);
+      const response = await fetch("http://127.0.0.1:5000/train_sales", {
+        method: "POST",
+      });
+      const data = await response.json();
+      alert(data.message || "Model trained successfully!");
     } catch (error) {
-      console.error(error);
-      setPredictions([]);
+      console.error("Error training model:", error);
+      alert("Error training model");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Sales Model</h2>
-      <button onClick={handleTrain}>Train Sales Model</button>
-      <p>{trainMessage}</p>
+    <div>
+      <h2>Customer Model</h2>
 
-      <div style={{ marginTop: '20px' }}>
-        <label>
-          Months to predict:
-          <input
-            type="number"
-            value={months}
-            onChange={(e) => setMonths(e.target.value)}
-            style={{ marginLeft: '10px', width: '60px' }}
-          />
-        </label>
-        <button onClick={handlePredict} style={{ marginLeft: '10px' }}>
-          Predict Sales
-        </button>
+      <div style={{ marginBottom: "10px" }}>
+        <label>Top N Customers: </label>
+        <input
+          type="number"
+          value={topN}
+          onChange={(e) => setTopN(e.target.value)}
+          style={{ marginLeft: "10px", marginRight: "20px" }}
+        />
+
+        <label>Customer Key: </label>
+        <input
+          type="text"
+          value={customerKey}
+          onChange={(e) => setCustomerKey(e.target.value)}
+          style={{ marginLeft: "10px" }}
+        />
       </div>
 
-      {predictions.length > 0 && (
-        <table border="1" style={{ marginTop: '20px' }}>
-          <thead>
-            <tr>
-              <th>Year</th>
-              <th>Month</th>
-              <th>Quarter</th>
-              <th>Predicted Sales</th>
-            </tr>
-          </thead>
-          <tbody>
-            {predictions.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.Year}</td>
-                <td>{row.Month}</td>
-                <td>{row.Quarter}</td>
-                <td>{row.PredictedSales}</td>
-              </tr>
+      <button onClick={fetchPredictions} disabled={loading}>
+        {loading ? "Loading..." : "Get Predictions"}
+      </button>
+      <button
+        onClick={trainModel}
+        disabled={loading}
+        style={{ marginLeft: "10px" }}
+      >
+        {loading ? "Training..." : "Train Model"}
+      </button>
+
+      <div style={{ marginTop: "20px" }}>
+        <h3>Results:</h3>
+        {results.length === 0 ? (
+          <p>No results yet</p>
+        ) : (
+          <ul>
+            {results.map((res, index) => (
+              <li key={index} style={{ marginBottom: "10px" }}>
+                <input
+                  type="text"
+                  readOnly
+                  value={`CustomerKey: ${res.CustomerKey}, Predicted Sales: ${res.PredictedSales.toFixed(
+                    2
+                  )}`}
+                  style={{
+                    width: "100%",
+                    padding: "5px",
+                    marginBottom: "5px", // spacing between textboxes
+                  }}
+                />
+              </li>
             ))}
-          </tbody>
-        </table>
-      )}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };

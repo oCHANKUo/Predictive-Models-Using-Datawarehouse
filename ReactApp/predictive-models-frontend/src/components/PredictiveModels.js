@@ -2,6 +2,7 @@ import React from "react";
 import SalesModel from "./SalesModel";
 import CustomerModel from "./CustomerModel";
 import ProductDemandModel from "./ProductDemandModel";
+import RegionalSalesModel from "./RegionalSalesModel";
 
 const PredictiveModels = () => {
   return (
@@ -11,6 +12,8 @@ const PredictiveModels = () => {
       <CustomerModel />
       <hr style={{ margin: "40px 0" }} />
       <ProductDemandModel />
+      <hr style={{ margin: "40px 0" }} />
+      <RegionalSalesModel />
     </div>
   );
 };

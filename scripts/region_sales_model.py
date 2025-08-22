@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pyodbc
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -8,6 +9,7 @@ import pickle
 import os
 
 app = Flask(__name__)
+CORS(app)
 CLASSIFIER_FILE = "region_sales_model.pkl"
 SALES_MODEL_FILE = "region_sales_sales_model.pkl"
 
