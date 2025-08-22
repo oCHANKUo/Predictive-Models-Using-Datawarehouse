@@ -1,33 +1,39 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Sales Prediction Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <h1>Sales Prediction Dashboard</h1>
-  
-  <!-- Prediction form -->
-  <div id="prediction-section">
-    <h2>Predict Sales</h2>
-    <input type="number" id="feature1" placeholder="Feature 1">
-    <input type="number" id="feature2" placeholder="Feature 2">
-    <button onclick="predictSales()">Predict</button>
-    <p id="result"></p>
-  </div>
+function predictSales() {
+  const feature1 = document.getElementById("feature1").value;
+  const feature2 = document.getElementById("feature2").value;
 
-  <div id="salesperson-section">
-    <h2>Salesperson Performance</h2>
-    <button onclick="predictSalesperson()">Get Prediction</button>
-    <p id="salesperson-result"></p>
-  </div>
+  fetch("http://localhost:5000/predict", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ feature1: feature1, feature2: feature2 })
+  })
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById("result").innerText = "Prediction: " + data.prediction;
+  })
+  .catch(error => console.error("Error:", error));
+}
 
-  <div id="regional-section">
-    <h2>Regional Sales Trends</h2>
-    <button onclick="predictRegional()">Get Prediction</button>
-    <p id="regional-result"></p>
-  </div>
+function predictSalesperson() {
+  fetch("http://localhost:5000/predict_salesperson", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById("salesperson-result").innerText = JSON.stringify(data);
+  })
+  .catch(error => console.error("Error:", error));
+}
 
-  <script src="script.js"></script>
-</body>
-</html>
+function predictRegional() {
+  fetch("http://localhost:5000/predict_regional", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById("regional-result").innerText = JSON.stringify(data);
+  })
+  .catch(error => console.error("Error:", error));
+}
