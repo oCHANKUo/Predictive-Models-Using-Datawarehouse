@@ -50,7 +50,7 @@ def train_model():
     # Create continuous MonthIndex
     df['MonthIndex'] = (df['Year'] - df['Year'].min()) * 12 + df['Month']
 
-    # Features (X) and target (y)
+    # Features x and target y
     X = df[['MonthIndex', 'Month', 'Quarter', 'IsHolidaySL']]
     y = df['TotalSales']
 

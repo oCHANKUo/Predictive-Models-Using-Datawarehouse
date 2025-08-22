@@ -10,7 +10,6 @@ import os
 app = Flask(__name__)
 CUSTOMER_MODEL_FILE = "customer_purchase_model.pkl"
 
-# Connect to SQL Server
 def get_connection():
     conn = pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -18,7 +17,6 @@ def get_connection():
     )
     return conn
 
-# Fetch customer purchase behavior data
 def fetch_customer_data():
     query = """
     SELECT 
@@ -42,12 +40,10 @@ def fetch_customer_data():
     conn.close()
     return df
 
-# Prepare dataset with "purchase next month" label
 def prepare_customer_data(df):
     df['Year'] = df['Year'].astype(int)
     df['Month'] = df['Month'].astype(int)
 
-    # Sort for lagging
     df = df.sort_values(by=['CustomerKey', 'Year', 'Month'])
 
     # Create label: did this customer purchase again next month?
@@ -65,7 +61,6 @@ def prepare_customer_data(df):
 
     return X, y, df
 
-# Train model
 @app.route('/train_customer', methods=['POST', 'GET'])
 def train_customer_model():
     df = fetch_customer_data()
@@ -79,7 +74,6 @@ def train_customer_model():
 
     return jsonify({"message": "Customer purchase behavior model trained successfully"})
 
-# Predict purchase likelihood for customers in latest month
 @app.route('/predict_customer', methods=['GET'])
 def predict_customer():
     if not os.path.exists(CUSTOMER_MODEL_FILE):
