@@ -65,7 +65,7 @@ def train_model():
     return jsonify({"message": "Model trained successfully"})
 
 # Predict future sales
-@app.route('ocal', methods=['GET', 'POST'])
+@app.route('/predict_sales', methods=['GET', 'POST'])
 def predict_sales():
     months = int(request.args.get("months", 6))
 
