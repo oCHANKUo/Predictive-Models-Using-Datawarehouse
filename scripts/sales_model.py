@@ -36,7 +36,7 @@ def fetch_data():
 
 
 # Train model
-@app.route('/train', methods=['POST', 'GET'])
+@app.route('/train_sales', methods=['POST', 'GET'])
 def train_model():
     df = fetch_data()
 
@@ -65,7 +65,7 @@ def train_model():
     return jsonify({"message": "Model trained successfully"})
 
 # Predict future sales
-@app.route('/predict', methods=['GET'])
+@app.route('/predict_sales', methods=['GET'])
 def predict_sales():
     months = int(request.args.get("months", 6))
 

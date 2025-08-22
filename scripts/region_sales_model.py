@@ -22,3 +22,6 @@ def fetch_data():
     df = pd.read_sql(query, conn)
     conn.close()
     return df
+
+def prepare_regional_data(df):
+    

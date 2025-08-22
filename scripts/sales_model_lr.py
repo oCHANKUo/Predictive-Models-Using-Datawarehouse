@@ -6,9 +6,8 @@ import pickle
 import os
 
 app = Flask(__name__)
-MODEL_FILE = "sales_model_lr.pkl"  # changed file name to avoid overwriting RF model
+MODEL_FILE = "sales_model_lr.pkl" 
 
-# Connect to SQL Server
 def get_connection():
     conn = pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -16,7 +15,6 @@ def get_connection():
     )
     return conn
 
-# Fetch sales data
 def fetch_data():
     query = """
     SELECT d.Year, d.Month, SUM(f.TotalDue) AS TotalSales
@@ -30,7 +28,6 @@ def fetch_data():
     conn.close()
     return df
 
-# Train Linear Regression model
 @app.route('/train', methods=['POST', 'GET'])
 def train_model():
     df = fetch_data()
@@ -52,7 +49,6 @@ def train_model():
 
     return jsonify({"message": "Linear Regression model trained successfully"})
 
-# Predict future sales
 @app.route('/predict', methods=['GET'])
 def predict_sales():
     months = int(request.args.get("months", 6))
@@ -70,7 +66,6 @@ def predict_sales():
     future = pd.DataFrame({"MonthIndex": [last_index + i for i in range(1, months+1)]})
     preds = model.predict(future)
 
-    # Map MonthIndex to actual Year and Month
     last_year = df['Year'].max()
     last_month = df['Month'].max()
     future_dates = []
