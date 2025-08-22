@@ -74,7 +74,7 @@ def train_customer_model():
 
     return jsonify({"message": "Customer purchase behavior model trained successfully"})
 
-@app.route('/predict_customer', methods=['GET'])
+@app.route('/predict_customer', methods=['GET', 'POST'])
 def predict_customer():
     if not os.path.exists(CUSTOMER_MODEL_FILE):
         return jsonify({"error": "Model not trained. Call /train_customer first"}), 400
