@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pyodbc
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -8,6 +9,7 @@ import pickle
 import os
 
 app = Flask(__name__)
+CORS(app)
 CUSTOMER_MODEL_FILE = "customer_purchase_model.pkl"
 
 def get_connection():
@@ -88,12 +90,22 @@ def predict_customer():
     # Predict probabilities
     preds = model.predict_proba(X)[:, 1]
 
-    # Attach predictions
     full_df['PurchaseProbability'] = preds
     full_df['Prediction'] = (preds > 0.5).astype(int)
 
     # Take only the latest month data per customer
     latest = full_df.groupby("CustomerKey").tail(1)
+
+    # Get query parameters
+    top_n = request.args.get("top_n", default=10, type=int)
+    customer_key = request.args.get("customer_key", default=None, type=int)
+
+    # Filter by customer key if provided
+    if customer_key:
+        latest = latest[latest["CustomerKey"] == customer_key]
+
+    # Sort by probability and take top N
+    latest = latest.sort_values(by="PurchaseProbability", ascending=False).head(top_n)
 
     results = latest[['CustomerKey', 'Year', 'Month', 'PurchaseProbability', 'Prediction']].to_dict(orient="records")
     return jsonify(results)

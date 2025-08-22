@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pyodbc
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
@@ -6,6 +7,7 @@ import joblib
 import os
 
 app = Flask(__name__)
+CORS(app) 
 MODEL_FILE = "models/product_demand_model.pkl"
 
 if not os.path.exists("models"):
