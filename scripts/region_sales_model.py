@@ -34,7 +34,7 @@ def fetch_data():
     return df
 
 def preprocess(df):
-     # Features = Territory
+    # Features = Territory
     # Target = CategoryName (best selling)
     pivot = df.pivot_table(index = "TerritoryName",
                            columns = "CategoryName",
