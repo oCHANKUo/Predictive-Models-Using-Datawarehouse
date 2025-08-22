@@ -36,9 +36,14 @@ def fetch_data():
 def preprocess(df):
      # Features = Territory
     # Target = CategoryName (best selling)
-    pivot = df.pivot_table(index = "TerritoryName".capitalize
+    pivot = df.pivot_table(index = "TerritoryName",
                            columns = "CategoryName",
                            values = "TotalSales",
                            aggfunc = "sum",
                            fill_value = 0).reset_index()
+    
+    # Target = best-selling category per territory
+    pivot["TopCategory"] = pivot.drop(columns = ["Territoryname"].idxmax(axis = 1))
+
+    X = pd.get_dummies(pivot["TerritorName"], drop_first=True)
     
