@@ -10,6 +10,5 @@ function predictSales() {
     .then(data => {
         document.getElementById("result").innerText = "Prediction: " + data.prediction;
     })
-
-    
+    .catch(error => console.error("Error:", error))
 }
