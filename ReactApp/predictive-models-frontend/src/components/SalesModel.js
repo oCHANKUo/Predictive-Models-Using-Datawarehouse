@@ -1,103 +1,131 @@
 import React, { useState } from "react";
+import axios from "axios";
 
 const SalesModel = () => {
-  const [topN, setTopN] = useState(10);
-  const [customerKey, setCustomerKey] = useState("");
+  const [monthsToPredict, setMonthsToPredict] = useState(6);
+  const [yearFilter, setYearFilter] = useState("");
+  const [topN, setTopN] = useState(6);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Fetch predictions from Flask
   const fetchPredictions = async () => {
     setLoading(true);
     try {
-      let url = `http://127.0.0.1:5000/predict_sales?top_n=${topN}`;
-      if (customerKey) {
-        url += `&customerKey=${customerKey}`;
+      const response = await axios.get("http://127.0.0.1:5000/predict_sales", {
+        params: { months: monthsToPredict },
+      });
+
+      let data = response.data;
+
+      // Apply year filter if selected
+      if (yearFilter) {
+        data = data.filter((r) => r.Year === parseInt(yearFilter));
       }
 
-      const response = await fetch(url);
-      const data = await response.json();
+      // Sort by predicted sales and take top N
+      data = data.sort((a, b) => b.PredictedSales - a.PredictedSales).slice(0, topN);
+
       setResults(data);
     } catch (error) {
       console.error("Error fetching predictions:", error);
-    } finally {
-      setLoading(false);
+      setResults([]);
     }
+    setLoading(false);
   };
 
+  // Call Flask API to train model
   const trainModel = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://127.0.0.1:5000/train_sales", {
-        method: "POST",
-      });
-      const data = await response.json();
-      alert(data.message || "Model trained successfully!");
+      const response = await axios.post("http://127.0.0.1:5000/train_sales");
+      alert(response.data.message || "Model trained successfully!");
     } catch (error) {
       console.error("Error training model:", error);
       alert("Error training model");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return (
-    <div>
-      <h2>Customer Model</h2>
+    <div style={{ padding: "20px" }}>
+      <h2>Sales Predictions</h2>
 
-      <div style={{ marginBottom: "10px" }}>
-        <label>Top N Customers: </label>
-        <input
-          type="number"
-          value={topN}
-          onChange={(e) => setTopN(e.target.value)}
-          style={{ marginLeft: "10px", marginRight: "20px" }}
-        />
+      <div style={{ marginBottom: "15px" }}>
+        <label>
+          Months to Predict: 
+          <input
+            type="number"
+            value={monthsToPredict}
+            onChange={(e) => setMonthsToPredict(Number(e.target.value))}
+            min="1"
+            style={{ marginLeft: "5px", marginRight: "20px", width: "60px" }}
+          />
+        </label>
 
-        <label>Customer Key: </label>
-        <input
-          type="text"
-          value={customerKey}
-          onChange={(e) => setCustomerKey(e.target.value)}
+        <label>
+          Year: 
+          <input
+            type="number"
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+            placeholder="e.g. 2025"
+            style={{ marginLeft: "5px", marginRight: "20px", width: "80px" }}
+          />
+        </label>
+
+        <label>
+          Top N: 
+          <input
+            type="number"
+            value={topN}
+            onChange={(e) => setTopN(Number(e.target.value))}
+            min="1"
+            style={{ marginLeft: "5px", width: "60px" }}
+          />
+        </label>
+
+        <button
+          onClick={fetchPredictions}
+          disabled={loading}
+          style={{ marginLeft: "20px" }}
+        >
+          {loading ? "Loading..." : "Predict Sales"}
+        </button>
+
+        <button
+          onClick={trainModel}
+          disabled={loading}
           style={{ marginLeft: "10px" }}
-        />
+        >
+          {loading ? "Training..." : "Train Model"}
+        </button>
       </div>
 
-      <button onClick={fetchPredictions} disabled={loading}>
-        {loading ? "Loading..." : "Get Predictions"}
-      </button>
-      <button
-        onClick={trainModel}
-        disabled={loading}
-        style={{ marginLeft: "10px" }}
-      >
-        {loading ? "Training..." : "Train Model"}
-      </button>
-
-      <div style={{ marginTop: "20px" }}>
-        <h3>Results:</h3>
-        {results.length === 0 ? (
-          <p>No results yet</p>
-        ) : (
-          <ul>
-            {results.map((res, index) => (
-              <li key={index} style={{ marginBottom: "10px" }}>
-                <input
-                  type="text"
-                  readOnly
-                  value={`CustomerKey: ${res.CustomerKey}, Predicted Sales: ${res.PredictedSales.toFixed(
-                    2
-                  )}`}
-                  style={{
-                    width: "100%",
-                    padding: "5px",
-                    marginBottom: "5px", // spacing between textboxes
-                  }}
-                />
-              </li>
+      {results.length > 0 ? (
+        <table border="1" style={{ marginTop: "20px", width: "100%" }}>
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Month</th>
+              <th>Quarter</th>
+              <th>Predicted Sales</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((res, idx) => (
+              <tr key={idx}>
+                <td>{res.Year}</td>
+                <td>{res.Month}</td>
+                <td>{res.Quarter}</td>
+                <td>{res.PredictedSales.toFixed(2)}</td>
+              </tr>
             ))}
-          </ul>
-        )}
-      </div>
+          </tbody>
+        </table>
+      ) : (
+        !loading && <p>No results yet.</p>
+      )}
     </div>
   );
 };

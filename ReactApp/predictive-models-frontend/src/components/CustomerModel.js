@@ -9,7 +9,7 @@ const CustomerModel = () => {
 
   const handleTrain = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/train_customer");
+      const response = await axios.get("http://localhost:5003/train_customer");
       setTrainMessage(response.data.message);
     } catch (error) {
       console.error(error);
@@ -19,7 +19,7 @@ const CustomerModel = () => {
 
   const handlePredict = async () => {
     try {
-      let url = `http://localhost:5000/predict_customer?top_n=${topN}`;
+      let url = `http://localhost:5003/predict_customer?top_n=${topN}`;
       if (customerKey) url += `&customer_key=${customerKey}`;
 
       const response = await axios.get(url);

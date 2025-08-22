@@ -15,7 +15,7 @@ const RegionalSalesModel = () => {
     setLoading(true);
     setMessage("");
     try {
-      const response = await axios.post("http://localhost:5000/train_regional_sales");
+      const response = await axios.post("http://localhost:5001/train_regional_sales");
       setMessage(response.data.message || "Model trained successfully!");
     } catch (err) {
       console.error(err);
@@ -28,7 +28,7 @@ const RegionalSalesModel = () => {
     setLoading(true);
     setMessage("");
     try {
-      const response = await axios.get("http://localhost:5000/predict_regional_sales", {
+      const response = await axios.get("http://localhost:5001/predict_regional_sales", {
         params: {
           months: 6, // default 6 months
           TerritoryName: territory || undefined,

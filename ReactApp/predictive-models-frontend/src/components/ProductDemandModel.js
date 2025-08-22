@@ -14,7 +14,7 @@ const ProductDemandModel = () => {
   const handleTrain = async () => {
     try {
       setErrMsg("");
-      const res = await axios.get("http://localhost:5000/train_product_demand");
+      const res = await axios.get("http://localhost:5002/train_product_demand");
       setTrainMessage(res.data.message || "Training complete.");
     } catch (e) {
       console.error(e);
@@ -27,7 +27,7 @@ const ProductDemandModel = () => {
     try {
       setLoading(true);
       setErrMsg("");
-      const url = `http://localhost:5000/predict_product_demand?months=${months}`;
+      const url = `http://localhost:5002/predict_product_demand?months=${months}`;
       const res = await axios.get(url);
       setRawResults(res.data || []);
     } catch (e) {
