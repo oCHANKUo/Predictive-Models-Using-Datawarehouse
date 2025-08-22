@@ -40,7 +40,7 @@ def fetch_data():
 def train_model():
     df = fetch_data()
 
-    # Ensure correct datatypes
+    # Data preparation and Ensure correct datatypes
     df['Year'] = df['Year'].astype(int)
     df['Month'] = df['Month'].astype(int)
     df['Quarter'] = df['Quarter'].astype(int)
