@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify
 import pyodbc
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
 import pickle
+import os
 
 app = Flask(__name__)
 MODEL_FILE = "region_sales_model.pkl"
@@ -16,12 +19,26 @@ def get_connection():
 
 def fetch_data():
     query = """
-    
+    SELECT 
+        t.TerritoryName,
+        p.Categoryname,
+        SUM(f.OrderQty) AS TotalSales
+    FROM FactSalesOrderDetail f
+    JOIN DimProduct p ON f.ProductKey = p.ProductKey
+    JOIN DimTerritory t ON f.TerritoryKey = t.TerritoryKey
+    GROUP BY t.TerritoryName, p.Categoryname
     """
     conn = get_connection()
     df = pd.read_sql(query, conn)
     conn.close()
     return df
 
-def prepare_regional_data(df):
+def preprocess(df):
+     # Features = Territory
+    # Target = CategoryName (best selling)
+    pivot = df.pivot_table(index = "TerritoryName".capitalize
+                           columns = "CategoryName",
+                           values = "TotalSales",
+                           aggfunc = "sum",
+                           fill_value = 0).reset_index()
     
