@@ -99,7 +99,7 @@ def predict_sales():
     future['Year'] = [y for (y, m) in future_year_month]
     future['Month'] = [m for (y, m) in future_year_month]
     future['Quarter'] = ((future['Month'] - 1) // 3 + 1)
-    future['IsHolidaySL'] = 0  # Future holiday info not predictable (kept as 0)
+    future['IsHolidaySL'] = 0  
 
     # Predict sales
     preds = model.predict(future[['MonthIndex', 'Month', 'Quarter', 'IsHolidaySL']])
