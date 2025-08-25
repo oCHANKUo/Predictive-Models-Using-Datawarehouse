@@ -10,7 +10,9 @@ import os
 
 app = Flask(__name__)
 CORS(app)
-CUSTOMER_MODEL_FILE = "customer_purchase_model.pkl"
+models_folder = os.path.join(os.path.dirname(__file__), "..", "models")
+CUSTOMER_MODEL_FILE = os.path.join(models_folder, "customer_model.pkl")
+
 
 def get_connection():
     conn = pyodbc.connect(
